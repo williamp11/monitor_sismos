@@ -29,3 +29,18 @@ python scripts/csv_to_json.py --download
 4. Pasa `magType` y `status` a minúscula y calcula `region` (texto después de la última coma de `place`).
 5. Descarta los registros sin `id`, `time` o coordenadas válidas, y los `id` repetidos. Una `depth` o `mag` inválida o fuera de rango se guarda como `null`.
 6. Escribe el JSON, lo vuelve a leer y valida su estructura, tipos y cantidad de registros. Al final imprime un resumen.
+
+---
+
+# Sprint 2: Componentes e interfaces React
+
+Dashboard en React + Vite + TypeScript + Material UI (carpeta `dashboard/`), con datos de ejemplo de `data/earthquakes.json`.
+
+## Ejecución
+Requisito: Node.js 20 o superior.
+```bash
+cd dashboard
+npm install
+npm run dev      # http://localhost:5173
+```
+Las capturas de escritorio y móvil están en `docs/sprint2/`.
