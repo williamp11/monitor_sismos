@@ -1,13 +1,7 @@
-import type { Coordinates, Earthquake, Filters, SelectOption } from '../types/DashboardTypes';
-import records from './sampleEarthquakes.json';
+import type { Coordinates, Filters, SelectOption } from '../types/DashboardTypes';
 
-/** Los 1941 sismos de data/earthquakes.json (Sprint 1). El dashboard muestra hasta los últimos 10 días. */
-export const sampleEarthquakes = records as Earthquake[];
-
-/** Fecha de corte del feed: se usa como "ahora" para los datos de ejemplo. */
 export const REFERENCE_DATE = new Date('2026-11-19T02:30:00Z');
 
-/** Ubicación de ejemplo del usuario (Guayaquil). En el Sprint 3 vendrá del navegador. */
 export const SAMPLE_USER_LOCATION: Coordinates = { latitude: -2.17, longitude: -79.92 };
 export const SAMPLE_USER_CITY = 'Guayaquil, Ecuador';
 

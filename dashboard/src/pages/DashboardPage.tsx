@@ -2,6 +2,8 @@ import { useState } from 'react';
 import Box from '@mui/material/Box';
 import Container from '@mui/material/Container';
 import Grid from '@mui/material/Grid';
+import CircularProgress from '@mui/material/CircularProgress';
+import Alert from '@mui/material/Alert';
 import FunctionsIcon from '@mui/icons-material/Functions';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
 import BoltIcon from '@mui/icons-material/Bolt';
@@ -22,18 +24,18 @@ import NearbyQuakesTable from '../components/NearbyQuakesTable';
 import NearbyQuakeList from '../components/NearbyQuakeList';
 import StateMessage from '../components/StateMessage';
 
-import { DEFAULT_FILTERS, REFERENCE_DATE, SAMPLE_USER_CITY, SAMPLE_USER_LOCATION, sampleEarthquakes } from '../data/sampleData';
+import useFetchData from '../hooks/useFetchData';
+import { DEFAULT_FILTERS, REFERENCE_DATE, SAMPLE_USER_CITY, SAMPLE_USER_LOCATION } from '../data/sampleData';
 import type { Filters } from '../types/DashboardTypes';
 import {
     applyFilters, computeKpis, countByDay, fmt1, fmtKm, formatDateTime,
     regionOptions, statusShare, timeAgo, topRegions, withDistance,
 } from '../utils/earthquakeStats';
 
-// Datos de ejemplo con la distancia al usuario (no cambian, por eso van fuera del componente).
-const allQuakes = withDistance(sampleEarthquakes, SAMPLE_USER_LOCATION);
-const regions = regionOptions(applyFilters(allQuakes, DEFAULT_FILTERS, REFERENCE_DATE));
-
 export default function DashboardPage() {
+
+    // Sismos recuperados desde Firebase (useEffect + useState dentro del hook)
+    const { data, loading, error } = useFetchData();
 
     // Estado del dashboard
     const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
@@ -50,6 +52,8 @@ export default function DashboardPage() {
     };
 
     // Datos derivados: se recalculan en cada renderizado a partir del estado
+    const allQuakes = withDistance(data, SAMPLE_USER_LOCATION);
+    const regions = regionOptions(applyFilters(allQuakes, DEFAULT_FILTERS, REFERENCE_DATE));
     const quakes = applyFilters(allQuakes, filters, REFERENCE_DATE);
     const kpis = computeKpis(quakes);
     const daily = countByDay(quakes, filters.days, REFERENCE_DATE);
@@ -90,83 +94,94 @@ export default function DashboardPage() {
                 alertCount={quakes.filter((q) => (q.mag ?? 0) >= 6).length} />
 
             <Container maxWidth="xl" sx={{ py: { xs: 2, md: 3 } }}>
-                <Grid container spacing={{ xs: 2, md: 3 }}>
+                {/* Mientras carga: indicador de progreso; si falla: mensaje de error */}
+                {loading && (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 2, py: 8 }}>
+                        <CircularProgress color="secondary" />
+                        Cargando sismos desde Firebase...
+                    </Box>
+                )}
+                {error && <Alert severity="error">Error al cargar los datos: {error}</Alert>}
 
-                    {/* Botón "Cerca de mí" (solo móvil) */}
-                    <Grid size={12} sx={{ display: { xs: 'block', md: 'none' } }}>
-                        <NearMeButton
-                            active={filters.nearMe}
-                            onClick={() => handleFilterChange({ nearMe: !filters.nearMe })} />
+                {!loading && !error && (
+                    <Grid container spacing={{ xs: 2, md: 3 }}>
+
+                        {/* Botón "Cerca de mí" (solo móvil) */}
+                        <Grid size={12} sx={{ display: { xs: 'block', md: 'none' } }}>
+                            <NearMeButton
+                                active={filters.nearMe}
+                                onClick={() => handleFilterChange({ nearMe: !filters.nearMe })} />
+                        </Grid>
+
+                        {/* Filtros */}
+                        <Grid size={12}>
+                            <FilterBar
+                                filters={filters}
+                                regions={regions}
+                                onChange={handleFilterChange}
+                                onClear={handleClear} />
+                        </Grid>
+
+                        {/* Indicadores */}
+                        <Grid size={12}>
+                            <KpiGrid items={kpiItems} />
+                        </Grid>
+
+                        {/* Gráfico de líneas */}
+                        <Grid size={{ xs: 12, md: 8 }}>
+                            <SectionCard title="Actividad sísmica diaria" subtitle={`Sismos por día · últimos ${filters.days} días`}>
+                                <DailyActivityChart labels={daily.map((d) => d.label)} values={daily.map((d) => d.count)} />
+                            </SectionCard>
+                        </Grid>
+
+                        {/* Gráfico de dona */}
+                        <Grid size={{ xs: 12, md: 4 }}>
+                            <SectionCard title="Estado de revisión" subtitle="Revisados por un analista vs. automáticos">
+                                {quakes.length === 0
+                                    ? emptyMessage
+                                    : <ReviewStatusChart reviewed={status.reviewed} automatic={status.automatic} />}
+                            </SectionCard>
+                        </Grid>
+
+                        {/* Mapa */}
+                        <Grid size={{ xs: 12, md: 8 }}>
+                            <SectionCard title="Sismos cerca de mí" subtitle={`Ubicación de ejemplo: ${SAMPLE_USER_CITY}`}>
+                                <EarthquakeDetailCard quake={selected} />
+                                <EarthquakeMap
+                                    quakes={quakes}
+                                    user={SAMPLE_USER_LOCATION}
+                                    selectedId={selected?.id ?? null}
+                                    onSelect={setSelectedId} />
+                            </SectionCard>
+                        </Grid>
+
+                        {/* Gráfico de barras */}
+                        <Grid size={{ xs: 12, md: 4 }}>
+                            <SectionCard title="Top 5 regiones" subtitle="Regiones con más sismos">
+                                {quakes.length === 0
+                                    ? emptyMessage
+                                    : <TopRegionsChart
+                                        regions={ranking.map((r) => r.region)}
+                                        counts={ranking.map((r) => r.count)}
+                                        onRegionSelect={(region) => handleFilterChange({ region })} />}
+                            </SectionCard>
+                        </Grid>
+
+                        {/* Tabla (escritorio) y tarjetas (móvil) */}
+                        <Grid size={12}>
+                            <SectionCard title="Sismos más cercanos" subtitle={`Distancia desde ${SAMPLE_USER_CITY}`}>
+                                {quakes.length === 0 && emptyMessage}
+                                <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+                                    <NearbyQuakesTable quakes={nearest} onSelect={setSelectedId} />
+                                </Box>
+                                <Box sx={{ display: { xs: 'block', md: 'none' } }}>
+                                    <NearbyQuakeList quakes={nearest} onSelect={setSelectedId} />
+                                </Box>
+                            </SectionCard>
+                        </Grid>
+
                     </Grid>
-
-                    {/* Filtros */}
-                    <Grid size={12}>
-                        <FilterBar
-                            filters={filters}
-                            regions={regions}
-                            onChange={handleFilterChange}
-                            onClear={handleClear} />
-                    </Grid>
-
-                    {/* Indicadores */}
-                    <Grid size={12}>
-                        <KpiGrid items={kpiItems} />
-                    </Grid>
-
-                    {/* Gráfico de líneas */}
-                    <Grid size={{ xs: 12, md: 8 }}>
-                        <SectionCard title="Actividad sísmica diaria" subtitle={`Sismos por día · últimos ${filters.days} días`}>
-                            <DailyActivityChart labels={daily.map((d) => d.label)} values={daily.map((d) => d.count)} />
-                        </SectionCard>
-                    </Grid>
-
-                    {/* Gráfico de dona */}
-                    <Grid size={{ xs: 12, md: 4 }}>
-                        <SectionCard title="Estado de revisión" subtitle="Revisados por un analista vs. automáticos">
-                            {quakes.length === 0
-                                ? emptyMessage
-                                : <ReviewStatusChart reviewed={status.reviewed} automatic={status.automatic} />}
-                        </SectionCard>
-                    </Grid>
-
-                    {/* Mapa */}
-                    <Grid size={{ xs: 12, md: 8 }}>
-                        <SectionCard title="Sismos cerca de mí" subtitle={`Ubicación de ejemplo: ${SAMPLE_USER_CITY}`}>
-                            <EarthquakeDetailCard quake={selected} />
-                            <EarthquakeMap
-                                quakes={quakes}
-                                user={SAMPLE_USER_LOCATION}
-                                selectedId={selected?.id ?? null}
-                                onSelect={setSelectedId} />
-                        </SectionCard>
-                    </Grid>
-
-                    {/* Gráfico de barras */}
-                    <Grid size={{ xs: 12, md: 4 }}>
-                        <SectionCard title="Top 5 regiones" subtitle="Regiones con más sismos">
-                            {quakes.length === 0
-                                ? emptyMessage
-                                : <TopRegionsChart
-                                    regions={ranking.map((r) => r.region)}
-                                    counts={ranking.map((r) => r.count)}
-                                    onRegionSelect={(region) => handleFilterChange({ region })} />}
-                        </SectionCard>
-                    </Grid>
-
-                    {/* Tabla (escritorio) y tarjetas (móvil) */}
-                    <Grid size={12}>
-                        <SectionCard title="Sismos más cercanos" subtitle={`Distancia desde ${SAMPLE_USER_CITY}`}>
-                            {quakes.length === 0 && emptyMessage}
-                            <Box sx={{ display: { xs: 'none', md: 'block' } }}>
-                                <NearbyQuakesTable quakes={nearest} onSelect={setSelectedId} />
-                            </Box>
-                            <Box sx={{ display: { xs: 'block', md: 'none' } }}>
-                                <NearbyQuakeList quakes={nearest} onSelect={setSelectedId} />
-                            </Box>
-                        </SectionCard>
-                    </Grid>
-
-                </Grid>
+                )}
             </Container>
         </Box>
     );
