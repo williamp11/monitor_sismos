@@ -44,3 +44,39 @@ npm install
 npm run dev      # http://localhost:5173
 ```
 Las capturas de escritorio y móvil están en `docs/sprint2/`.
+
+---
+
+# Sprint 3: Conexión de React con Firebase
+
+El dashboard ya no usa datos de ejemplo: lee los sismos desde Firebase Realtime Database (nodo `earthquakes`).
+
+## Cargar los datos en Firebase
+
+1. Generar el JSON con la estructura de Firebase (cada sismo queda dentro de `earthquakes`, identificado por su `id`):
+   ```bash
+   python scripts/json_to_firebase.py
+   ```
+   Se crea `data/earthquakes_firebase.json`.
+2. En la consola de Firebase: **Realtime Database > ⋮ > Importar JSON** y seleccionar ese archivo.
+3. En **Reglas**, permitir solo lectura pública:
+   ```json
+   { "rules": { ".read": true, ".write": false } }
+   ```
+
+## Código
+
+- `dashboard/src/firebase/firebase.ts`: configuración del proyecto y conexión a la base de datos.
+- `dashboard/src/services/earthquakeService.ts`: `obtenerSismos()`, que lee el nodo `earthquakes`.
+- `dashboard/src/hooks/useFetchData.ts`: ejecuta la consulta con `useEffect` y guarda `data`, `loading` y `error` con `useState`.
+- `dashboard/src/pages/DashboardPage.tsx`: usa el hook y calcula KPI, gráficos, mapa y tablas con los datos recuperados.
+
+## Ejecución
+
+```bash
+cd dashboard
+npm install
+npm run dev      # http://localhost:5173
+```
+
+Las capturas del sprint están en `docs/sprint3/`.
